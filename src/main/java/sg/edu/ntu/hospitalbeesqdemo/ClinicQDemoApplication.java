@@ -11,12 +11,12 @@ import java.time.Clock;
 @PropertySource("queue.properties")
 public class ClinicQDemoApplication {
 
-	public static void main(String[] args) {
-		SpringApplication.run(ClinicQDemoApplication.class, args);
-	}
+    public static void main(String[] args) {
+        SpringApplication.run(ClinicQDemoApplication.class, args);
+    }
 
-	@Bean
+    @Bean
     public Clock getClock() {
-	    return Clock.systemUTC();
+        return Clock.systemUTC();
     }
 }

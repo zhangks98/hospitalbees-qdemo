@@ -131,7 +131,7 @@ public final class InMemoryQueueRepository implements QueueRepository {
     }
 
     @Override
-    public void notifyQueueElement() throws EmptyQueueException {
+    public QueueElement notifyQueueElement() throws EmptyQueueException {
         if (clinicQueue.size() == 0) {
             throw new EmptyQueueException();
         }
@@ -143,6 +143,7 @@ public final class InMemoryQueueRepository implements QueueRepository {
             QueueElement qePending = clinicQueueMap.get(qnPending);
         }
         // TODO Notify the HospitalBee API on calling QueueElement
+        return qe;
 
     }
 

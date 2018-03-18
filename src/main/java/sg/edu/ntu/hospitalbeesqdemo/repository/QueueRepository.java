@@ -1,11 +1,8 @@
 package sg.edu.ntu.hospitalbeesqdemo.repository;
 
 import sg.edu.ntu.hospitalbeesqdemo.exceptions.*;
-import sg.edu.ntu.hospitalbeesqdemo.model.LateRank;
 import sg.edu.ntu.hospitalbeesqdemo.model.OnlineQueueElement;
 import sg.edu.ntu.hospitalbeesqdemo.model.QueueElement;
-
-import java.util.List;
 
 /**
  * The repository that manages all the QueueElement Numbers
@@ -40,6 +37,8 @@ public interface QueueRepository {
      *
      * @param onlineQueueElement OnlineQueueElement obtained in {@link sg.edu.ntu.hospitalbeesqdemo.web.QueuesController}
      * @param refQueueNumber     the reference queue number used to determine where to insert onlineQueueElement
+     *                           if value is "NO_TAIL", it implies that HospitalBee find an empty queue {@link sg.edu.ntu.hospitalbeesqdemo.exceptions.EmptyQueueException}
+     *                           while peeking the tail of the queue when creating the online queue number
      */
     void insert(OnlineQueueElement onlineQueueElement, String refQueueNumber) throws QueueNumberAlreadyExistsException, QueueElementNotFoundException;
 
@@ -54,7 +53,7 @@ public interface QueueRepository {
      * Remove the head and set it as the pending queue element, notify the QueueElement if it is online booking
      * Also notify the second QueueElement in the updated queue
      */
-    void notifyQueueElement() throws EmptyQueueException, EmptyQueueException;
+    QueueElement notifyQueueElement() throws EmptyQueueException;
 
     /**
      * Remove the specified QueueElement and notify HospitalBee on the completed booking
