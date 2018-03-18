@@ -4,6 +4,5 @@ public enum QueueStatus {
     ACTIVE,
     MISSED,
     NOTIFIED,
-    REACTIVATED,
     COMPLETED
 }

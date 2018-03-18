@@ -323,8 +323,11 @@ public class InMemoryQueueRepositoryTest {
 
         queueRepository.reactivate("0000");
         queueRepository.reactivate("HB0000");
-        assertEquals(QueueStatus.REACTIVATED, queueRepository.findQueueElementByNumber("0000").getStatus());
-        assertEquals(QueueStatus.REACTIVATED, queueRepository.findQueueElementByNumber("HB0000").getStatus());
+        assertTrue(queueRepository.findQueueElementByNumber("0000").isReactivated());
+        assertTrue(queueRepository.findQueueElementByNumber("HB0000").isReactivated());
+        assertEquals(QueueStatus.ACTIVE, queueRepository.findQueueElementByNumber("0000").getStatus());
+        assertEquals(QueueStatus.ACTIVE, queueRepository.findQueueElementByNumber("HB0000").getStatus());
+
         assertEquals(11, queueRepository.getLength());
         int len = queueRepository.getLengthFrom("0000");
         assertTrue(len > 0);
@@ -369,6 +372,24 @@ public class InMemoryQueueRepositoryTest {
         queueRepository.reactivate("0000");
     }
 
+    @Test(expected = QueueElementNotFoundException.class)
+    public void testMissedAfterReactivate() throws QueueNumberAlreadyExistsException, QueueElementNotFoundException, EmptyQueueException, IllegalTransitionException, MissedQueueExpiredException {
+        QueueRepository queueRepository = createEmptyQueueRepository();
+        queueRepository.createAndInsert();
+        OnlineQueueElement onlineQueueElement = new OnlineQueueElement(0, 0, LateRank.ON_TIME);
+        queueRepository.insert(onlineQueueElement, "0000");
+        queueRepository.notifyQueueElement();
+        queueRepository.notifyQueueElement();
+        queueRepository.setMissed("0000");
+        queueRepository.setMissed("HB0000");
+        queueRepository.reactivate("HB0000");
+        queueRepository.reactivate("0000");
+
+        queueRepository.notifyQueueElement();
+        queueRepository.setMissed("HB0000");
+        assertEquals(1, queueRepository.getLength());
+        queueRepository.findQueueElementByNumber("HB0000");
+    }
 
 
 }

@@ -5,9 +5,10 @@ public class QueueElement {
     private final Object lock = new Object();
     private volatile QueueStatus status = QueueStatus.ACTIVE;
     private volatile long missedTime = 0;
+    private volatile boolean isReactivated = false;
 
     public QueueElement(int queueNumber) {
-        this.queueNumber = String.format("%04d",queueNumber);
+        this.queueNumber = String.format("%04d", queueNumber);
     }
 
     public QueueElement(String queueNumber) {
@@ -39,6 +40,18 @@ public class QueueElement {
     public void setMissedTime(long missedTime) {
         synchronized (this.lock) {
             this.missedTime = missedTime;
+        }
+    }
+
+    public boolean isReactivated() {
+        synchronized (this.lock) {
+            return isReactivated;
+        }
+    }
+
+    public void setReactivated(boolean reactivated) {
+        synchronized (this.lock) {
+            isReactivated = reactivated;
         }
     }
 }

@@ -8,7 +8,7 @@ import org.springframework.context.annotation.PropertySource;
 import java.time.Clock;
 
 @SpringBootApplication
-@PropertySource("queue.properties")
+@PropertySource("classpath:queue.properties")
 public class ClinicQDemoApplication {
 
     public static void main(String[] args) {

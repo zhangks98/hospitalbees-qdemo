@@ -27,7 +27,13 @@ public class QueuesController {
         this.queueRepository = queueRepository;
     }
 
-    // Not used by HB
+    /**
+     * CREATE route for in-hospital booking
+     * Not used by HospitalBee
+     *
+     * @return HttpHeader containing the corresponding SHOW route
+     * @throws IllegalArgumentException if the queue number is not created
+     */
     @PostMapping(value = "")
     @ResponseStatus(HttpStatus.CREATED)
     HttpHeaders createOfflineQueue() throws IllegalArgumentException {
@@ -37,7 +43,15 @@ public class QueuesController {
         return headers;
     }
 
-    // CREATE Route for check-in
+    /**
+     * CREATE route for HospitalBee check-in
+     *
+     * @param onlineQueueForm the JSON request body for online check-in, for constraints see {@link sg.edu.ntu.hospitalbeesqdemo.model.OnlineQueueForm}
+     * @return HttpHeader containing the corresponding SHOW route
+     * @throws IllegalArgumentException          if the request body is illegal
+     * @throws QueueNumberAlreadyExistsException if the queue number is already in the queue
+     * @throws QueueElementNotFoundException     if the queue element cannot be found by queue number
+     */
     @PostMapping(value = "/online", consumes = MediaType.APPLICATION_JSON_VALUE)
     @ResponseStatus(HttpStatus.CREATED)
     HttpHeaders createOnlineQueue(@Valid @RequestBody OnlineQueueForm onlineQueueForm) throws IllegalArgumentException, QueueNumberAlreadyExistsException, QueueElementNotFoundException {
@@ -48,44 +62,107 @@ public class QueuesController {
         return headers;
     }
 
-    @GetMapping(value = "")
+    /**
+     * INDEX route for showing all the queue numbers
+     *
+     * @return a JSON list of all the queue numbers in the system
+     */
+    @GetMapping(value = "", produces = MediaType.APPLICATION_JSON_VALUE)
     String[] getAllQueueNumbers() {
         return queueRepository.getClinicQueue();
     }
 
+    /**
+     * Get the last element of the queue for HospitalBee to determine the reference queue number
+     *
+     * @return the last QueueElement in the queue
+     * @throws EmptyQueueException if the queue is empty
+     */
+    @GetMapping(value = "tail", produces = MediaType.APPLICATION_JSON_VALUE)
+    QueueElement getQueueTail() throws EmptyQueueException {
+        return queueRepository.peekLast();
+    }
+
+    /**
+     * UPDATE route for notifying the head of the queue
+     *
+     * @return the notified QueueElement
+     * @throws EmptyQueueException if there are no elements in the queue
+     */
     @PutMapping(value = "/notify")
     QueueElement notifyHead() throws EmptyQueueException {
         return queueRepository.notifyQueueElement();
     }
 
+    /**
+     * SHOW route for displaying the details of the QueueElement
+     *
+     * @param queueNumber the queue number to query the QueueElement
+     * @return QueueElement fields as well as the number of QueueElements before the given one see {@link sg.edu.ntu.hospitalbeesqdemo.model.QueueElementResponse}
+     * @throws QueueElementNotFoundException if the queue element cannot be found by queue number
+     */
     @GetMapping(value = "/{queueNumber}", produces = MediaType.APPLICATION_JSON_VALUE)
     QueueElementResponse getQueueNumber(@PathVariable("queueNumber") String queueNumber) throws QueueElementNotFoundException {
         QueueElement qe = queueRepository.findQueueElementByNumber(queueNumber);
         return new QueueElementResponse(qe, queueRepository.getLengthFrom(queueNumber));
     }
 
+    /**
+     * UPDATE route for setting the queue number as missed
+     * if QueueElement isReactivated, then delete the queue and notify HospitalBee that it is absent
+     *
+     * @param queueNumber the queue number to be set missed
+     * @throws QueueElementNotFoundException if the queue element cannot be found by queue number
+     * @throws IllegalTransitionException    if the queue element has not been NOTIFIED
+     */
     @PutMapping(value = "/{queueNumber}/miss")
     void setMiss(@PathVariable("queueNumber") String queueNumber) throws QueueElementNotFoundException, IllegalTransitionException {
         queueRepository.setMissed(queueNumber);
     }
 
+    /**
+     * UPDATE route for reactivating a missed queue
+     *
+     * @param queueNumber the queue number to be reactivated
+     * @throws MissedQueueExpiredException   if the queue number is expired
+     * @throws QueueElementNotFoundException if the queue element cannot be found by queue number
+     * @throws IllegalTransitionException    if the queue number is not MISSED
+     */
     @PutMapping(value = "/{queueNumber}/reactivate")
     void reactivate(@PathVariable("queueNumber") String queueNumber) throws MissedQueueExpiredException, QueueElementNotFoundException, IllegalTransitionException {
         queueRepository.reactivate(queueNumber);
     }
 
+    /**
+     * DESTROY route for setting the queue as completed
+     *
+     * @param queueNumber the queue number to be set as complete
+     * @throws QueueElementNotFoundException if the queue element cannot be found by queue number
+     * @throws IllegalTransitionException    if the queue number is not NOTIFIED
+     */
     @DeleteMapping(value = "/{queueNumber}/complete")
     void setComplete(@PathVariable("queueNumber") String queueNumber) throws QueueElementNotFoundException, IllegalTransitionException {
         queueRepository.setComplete(queueNumber);
     }
 
-    // Not used by HB
+    /**
+     * Reset the QueueRepository at the end of the clinic operational hours
+     * Not used by HB
+     *
+     * @return Success message
+     */
     @DeleteMapping(value = "/reset")
     String reset() {
         queueRepository.reset();
         return "Queue Repository Reset Successful!";
     }
 
+    /**
+     * Exception Handler for Illegal Request Body
+     *
+     * @param e the exception
+     * @return the exception message
+     */
     @ExceptionHandler(IllegalArgumentException.class)
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     String handleBadRequest(Exception e) {

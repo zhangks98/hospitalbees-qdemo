@@ -168,11 +168,11 @@ public final class InMemoryQueueRepository implements QueueRepository {
             throw new QueueElementNotFoundException(queueNumber);
         }
         QueueElement qe = clinicQueueMap.get(queueNumber);
-        if (!qe.getStatus().equals(QueueStatus.NOTIFIED) && !qe.getStatus().equals(QueueStatus.REACTIVATED)) {
+        if (!qe.getStatus().equals(QueueStatus.NOTIFIED)) {
             throw new IllegalTransitionException(queueNumber, qe.getStatus(), QueueStatus.MISSED);
         }
 
-        if (qe.getStatus().equals(QueueStatus.REACTIVATED)) {
+        if (qe.isReactivated()) {
             clinicQueueMap.remove(queueNumber);
             // TODO notify HospitalBee API on absent queue
 
@@ -192,7 +192,7 @@ public final class InMemoryQueueRepository implements QueueRepository {
         }
         QueueElement qe = clinicQueueMap.get(queueNumber);
         if (!qe.getStatus().equals(QueueStatus.MISSED)) {
-            throw new IllegalTransitionException(queueNumber, qe.getStatus(), QueueStatus.REACTIVATED);
+            throw new IllegalTransitionException(queueNumber, qe.getStatus(), QueueStatus.ACTIVE);
         }
 
         if (clock.millis() - qe.getMissedTime() > missTimeAllowed) {
@@ -211,9 +211,8 @@ public final class InMemoryQueueRepository implements QueueRepository {
             }
         }
 
-        qe.setStatus(QueueStatus.REACTIVATED);
-
-
+        qe.setStatus(QueueStatus.ACTIVE);
+        qe.setReactivated(true);
     }
 
     @Override
