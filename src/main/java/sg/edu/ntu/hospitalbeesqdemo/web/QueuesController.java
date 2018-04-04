@@ -49,7 +49,7 @@ public class QueuesController {
      * @throws QueueNumberAlreadyExistsException if the queue number is already in the queue
      * @throws QueueElementNotFoundException     if the queue element cannot be found by queue number
      */
-    @PostMapping(value = "/checkin/{tid}", consumes = MediaType.APPLICATION_JSON_VALUE)
+    @PostMapping(value = "/checkin/{tid}")
     @ResponseStatus(HttpStatus.CREATED)
     HttpHeaders createOnlineQueue(@PathVariable("tid") String tid) throws IllegalArgumentException, QueueNumberAlreadyExistsException, QueueElementNotFoundException, IllegalTransitionException, MissedQueueExpiredException {
         OnlineQueueElement qe;
@@ -74,8 +74,8 @@ public class QueuesController {
      * @return a JSON list of all the queue numbers in the system
      */
     @GetMapping(value = "", produces = MediaType.APPLICATION_JSON_VALUE)
-    String[] getAllQueueNumbers() {
-        return queueRepository.getClinicQueue();
+    AllQueueElementResponse getAllQueueNumbers() {
+        return new AllQueueElementResponse(queueRepository.getClinicQueue());
     }
 
     /**
@@ -108,8 +108,8 @@ public class QueuesController {
      * @throws QueueElementNotFoundException if the queue element cannot be found by queue number
      */
     @GetMapping(value = "/{queueNumber}", produces = MediaType.APPLICATION_JSON_VALUE)
-    QueueElement getQueueNumber(@PathVariable("queueNumber") String queueNumber) throws QueueElementNotFoundException {
-        return queueRepository.findQueueElementByNumber(queueNumber);
+    QueueElementResponse getQueueNumber(@PathVariable("queueNumber") String queueNumber) throws QueueElementNotFoundException {
+        return new QueueElementResponse(queueRepository.findQueueElementByNumber(queueNumber), queueRepository.getLengthFrom(queueNumber));
     }
 
     /**
