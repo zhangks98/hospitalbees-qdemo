@@ -5,6 +5,9 @@ import org.springframework.stereotype.Component;
 import java.io.*;
 
 public class SerializationUtil {
+
+    private static final String SER_PATH = "./ser/";
+
     /** Serializes the class to a particular location.
      * @param toSave The class to be serialized.
      * @param filename The file name for the file
@@ -13,7 +16,9 @@ public class SerializationUtil {
      */
     public static void saveObject(Object toSave, String filename) throws IOException
     {
-        FileOutputStream fileOut = new FileOutputStream(filename);
+        File file = new File(SER_PATH + filename);
+        file.getParentFile().mkdirs();
+        FileOutputStream fileOut = new FileOutputStream(file);
         ObjectOutputStream out = new ObjectOutputStream(fileOut);
         out.writeObject(toSave);
         out.flush();
@@ -33,7 +38,7 @@ public class SerializationUtil {
 
         try
         {
-            FileInputStream fileIn = new FileInputStream(filename);
+            FileInputStream fileIn = new FileInputStream(SER_PATH + filename);
             ObjectInputStream read = new ObjectInputStream(fileIn);
             toOpen = read.readObject();
             read.close();

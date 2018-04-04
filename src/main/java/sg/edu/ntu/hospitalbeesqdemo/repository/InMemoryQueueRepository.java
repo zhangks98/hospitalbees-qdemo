@@ -55,9 +55,9 @@ public final class InMemoryQueueRepository implements QueueRepository {
         Object cqm = SerializationUtil.loadObject("queue-map.ser");
         Object g = SerializationUtil.loadObject("generator.ser");
 
-        if (cq != null  && cqm != null && g!= null){
-            clinicQueue.addAll((List) cq);
-            clinicQueueMap.putAll((ConcurrentMap) cqm);
+        if (cq instanceof List  && cqm instanceof ConcurrentHashMap && g!= null){
+            clinicQueue.addAll((List<String>) cq);
+            clinicQueueMap.putAll((ConcurrentMap<String, QueueElement>) cqm);
             queueNumberGenerator.set((Integer) g);
             boolean validatorFlag = true;
             ListIterator<String> iter = clinicQueue.listIterator(clinicQueue.size());
@@ -74,9 +74,10 @@ public final class InMemoryQueueRepository implements QueueRepository {
                 clinicQueue.clear();
                 clinicQueueMap.clear();
             }
-            log.info("Current Queue: " + String.join(", ",clinicQueue));
-            log.info("Current Generator Number: " + queueNumberGenerator.get());
         }
+
+        log.info("Current Queue: " + String.join(", ",clinicQueue));
+        log.info("Current Generator Number: " + queueNumberGenerator.get());
     }
 
     @Autowired
