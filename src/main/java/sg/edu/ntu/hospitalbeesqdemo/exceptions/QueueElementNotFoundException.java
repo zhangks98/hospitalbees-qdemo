@@ -6,6 +6,6 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 @ResponseStatus(HttpStatus.NOT_FOUND)
 public final class QueueElementNotFoundException extends Exception {
     public QueueElementNotFoundException(String queueNumber) {
-        super(String.format("The specified Queue Number %s is not found", queueNumber));
+        super(String.format("The specified Queue Element %s is not found", queueNumber));
     }
 }

@@ -1,7 +1,6 @@
 package sg.edu.ntu.hospitalbeesqdemo.model;
 
 import javax.validation.constraints.NotBlank;
-import javax.validation.constraints.NotNull;
 import javax.validation.constraints.Pattern;
 
 public class OnlineQueueForm {
@@ -10,8 +9,7 @@ public class OnlineQueueForm {
     @Pattern(regexp = "^HB\\d{4}$")
     private String queueNumber;
 
-    @NotNull
-    private long tid;
+    private String tid;
 
     @NotBlank
     private String lateRank;
@@ -35,11 +33,11 @@ public class OnlineQueueForm {
         this.queueNumber = queueNumber;
     }
 
-    public long getTid() {
+    public String getTid() {
         return tid;
     }
 
-    public void setTid(long tid) {
+    public void setTid(String tid) {
         this.tid = tid;
     }
 

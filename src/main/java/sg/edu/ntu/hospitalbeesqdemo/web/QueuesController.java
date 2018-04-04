@@ -6,10 +6,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
 import sg.edu.ntu.hospitalbeesqdemo.exceptions.*;
-import sg.edu.ntu.hospitalbeesqdemo.model.OnlineQueueElement;
-import sg.edu.ntu.hospitalbeesqdemo.model.OnlineQueueForm;
-import sg.edu.ntu.hospitalbeesqdemo.model.QueueElement;
-import sg.edu.ntu.hospitalbeesqdemo.model.QueueElementResponse;
+import sg.edu.ntu.hospitalbeesqdemo.model.*;
 import sg.edu.ntu.hospitalbeesqdemo.repository.QueueRepository;
 
 import javax.validation.Valid;
@@ -46,19 +43,28 @@ public class QueuesController {
     /**
      * CREATE route for HospitalBee check-in
      *
-     * @param onlineQueueForm the JSON request body for online check-in, for constraints see {@link sg.edu.ntu.hospitalbeesqdemo.model.OnlineQueueForm}
+     * //@param onlineQueueForm the JSON request body for online check-in, for constraints see {@link OnlineQueueForm}
      * @return HttpHeader containing the corresponding SHOW route
      * @throws IllegalArgumentException          if the request body is illegal
      * @throws QueueNumberAlreadyExistsException if the queue number is already in the queue
      * @throws QueueElementNotFoundException     if the queue element cannot be found by queue number
      */
-    @PostMapping(value = "/online", consumes = MediaType.APPLICATION_JSON_VALUE)
+    @PostMapping(value = "/checkin/{tid}", consumes = MediaType.APPLICATION_JSON_VALUE)
     @ResponseStatus(HttpStatus.CREATED)
-    HttpHeaders createOnlineQueue(@Valid @RequestBody OnlineQueueForm onlineQueueForm) throws IllegalArgumentException, QueueNumberAlreadyExistsException, QueueElementNotFoundException {
-        OnlineQueueElement onlineQueueElement = onlineQueueForm.toOnlineQueueElement();
-        queueRepository.insert(onlineQueueElement, onlineQueueForm.getRefQueueNumber());
+    HttpHeaders createOnlineQueue(@PathVariable("tid") String tid) throws IllegalArgumentException, QueueNumberAlreadyExistsException, QueueElementNotFoundException, IllegalTransitionException, MissedQueueExpiredException {
+        OnlineQueueElement qe;
+        try {
+            qe = queueRepository.findQueueElementByTid(tid);
+            if (qe.getStatus().equals(QueueStatus.MISSED) && !qe.isReactivated()) {
+                queueRepository.reactivate(qe.getQueueNumber());
+            }
+        } catch (QueueElementNotFoundException e) {
+            // TODO query HB for the queueElement
+        }
+//        OnlineQueueElement onlineQueueElement = onlineQueueForm.toOnlineQueueElement();
+//        queueRepository.insert(onlineQueueElement, onlineQueueForm.getRefQueueNumber());
         HttpHeaders headers = new HttpHeaders();
-        headers.setLocation(linkTo(QueuesController.class).slash(onlineQueueElement.getQueueNumber()).toUri());
+//        headers.setLocation(linkTo(QueuesController.class).slash(qe.getQueueNumber()).toUri());
         return headers;
     }
 
@@ -78,7 +84,7 @@ public class QueuesController {
      * @return the last QueueElement in the queue
      * @throws EmptyQueueException if the queue is empty
      */
-    @GetMapping(value = "tail", produces = MediaType.APPLICATION_JSON_VALUE)
+    @GetMapping(value = "/tail", produces = MediaType.APPLICATION_JSON_VALUE)
     QueueElement getQueueTail() throws EmptyQueueException {
         return queueRepository.peekLast();
     }
@@ -98,13 +104,12 @@ public class QueuesController {
      * SHOW route for displaying the details of the QueueElement
      *
      * @param queueNumber the queue number to query the QueueElement
-     * @return QueueElement fields as well as the number of QueueElements before the given one see {@link sg.edu.ntu.hospitalbeesqdemo.model.QueueElementResponse}
+     * @return QueueElement fields as well as the number of QueueElements before the given one see {@link QueueElementResponse}
      * @throws QueueElementNotFoundException if the queue element cannot be found by queue number
      */
     @GetMapping(value = "/{queueNumber}", produces = MediaType.APPLICATION_JSON_VALUE)
-    QueueElementResponse getQueueNumber(@PathVariable("queueNumber") String queueNumber) throws QueueElementNotFoundException {
-        QueueElement qe = queueRepository.findQueueElementByNumber(queueNumber);
-        return new QueueElementResponse(qe, queueRepository.getLengthFrom(queueNumber));
+    QueueElement getQueueNumber(@PathVariable("queueNumber") String queueNumber) throws QueueElementNotFoundException {
+        return queueRepository.findQueueElementByNumber(queueNumber);
     }
 
     /**

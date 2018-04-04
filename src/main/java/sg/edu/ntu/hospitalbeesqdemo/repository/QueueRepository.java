@@ -18,6 +18,14 @@ public interface QueueRepository {
     QueueElement findQueueElementByNumber(String queueNumber) throws QueueElementNotFoundException;
 
     /**
+     * Find the onlinequeue element of the corresponding tid
+     *
+     * @param tid specifies the tid
+     * @return the queue element associated with that number
+     */
+    OnlineQueueElement findQueueElementByTid(String tid) throws QueueElementNotFoundException;
+
+    /**
      * Get the Entire Clinic Queue
      *
      * @return the current clinic queue

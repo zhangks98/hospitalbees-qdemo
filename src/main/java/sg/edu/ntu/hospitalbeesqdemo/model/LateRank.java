@@ -1,7 +1,5 @@
 package sg.edu.ntu.hospitalbeesqdemo.model;
 
-import java.util.Map;
-
 public enum LateRank {
     ON_TIME,
     LITTLE_LATE,

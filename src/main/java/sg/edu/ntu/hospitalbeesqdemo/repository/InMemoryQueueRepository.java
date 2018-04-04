@@ -1,5 +1,7 @@
 package sg.edu.ntu.hospitalbeesqdemo.repository;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
@@ -9,12 +11,12 @@ import sg.edu.ntu.hospitalbeesqdemo.model.OnlineQueueElement;
 import sg.edu.ntu.hospitalbeesqdemo.model.QueueElement;
 import sg.edu.ntu.hospitalbeesqdemo.model.QueueStatus;
 
+import javax.annotation.PostConstruct;
+import javax.annotation.PreDestroy;
+import java.io.IOException;
 import java.security.SecureRandom;
 import java.time.Clock;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.ListIterator;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.TimeUnit;
@@ -29,24 +31,64 @@ public final class InMemoryQueueRepository implements QueueRepository {
 //    private final ConcurrentMap<String, QueueElement> missedQueueMap = new ConcurrentHashMap<>();
 //    private final Object lock = new Object();
     private final SecureRandom random = new SecureRandom();
+    private final Logger log = LoggerFactory.getLogger(this.getClass());
 
     private final Clock clock;
     private final double latePercentage;
     private final double missPercentage;
     private final long missTimeAllowed;
 
+    private static final String EMPTY_QUEUE = "NO_TAIL";
+
     // TODO Add Serialization Code to save state
+    // TODO Add handshake with hb
+    @PreDestroy
+    public void persistData() throws IOException {
+        SerializationUtil.saveObject(clinicQueue, "queue.ser");
+        SerializationUtil.saveObject(clinicQueueMap, "queue-map.ser");
+        SerializationUtil.saveObject(queueNumberGenerator.get(), "generator.ser");
+    }
+
+    @PostConstruct
+    public void loadData(){
+        Object cq = SerializationUtil.loadObject("queue.ser");
+        Object cqm = SerializationUtil.loadObject("queue-map.ser");
+        Object g = SerializationUtil.loadObject("generator.ser");
+
+        if (cq != null  && cqm != null && g!= null){
+            clinicQueue.addAll((List) cq);
+            clinicQueueMap.putAll((ConcurrentMap) cqm);
+            queueNumberGenerator.set((Integer) g);
+            boolean validatorFlag = true;
+            ListIterator<String> iter = clinicQueue.listIterator(clinicQueue.size());
+            while(iter.hasPrevious()) {
+                String qnString = iter.previous();
+                if (!clinicQueueMap.containsKey(qnString)) {
+                    validatorFlag = false;
+                    break;
+                }
+            }
+
+            if(!validatorFlag) {
+                queueNumberGenerator.set(0);
+                clinicQueue.clear();
+                clinicQueueMap.clear();
+            }
+            log.info("Current Queue: " + String.join(", ",clinicQueue));
+            log.info("Current Generator Number: " + queueNumberGenerator.get());
+        }
+    }
 
     @Autowired
     public InMemoryQueueRepository( @Value("${queue.miss_time_allowed_in_minutes}") long missTimeAllowedInMinutes,
                                     @Value("${queue.late_percentage}") double latePercentage,
                                     @Value("${queue.miss_percentage}") double missPercentage,
                                    Clock clock) {
-//        System.out.println("missTimeAllowedInMinutes = [" + missTimeAllowedInMinutes + "], latePercentage = [" + latePercentage + "], missPercentage = [" + missPercentage + "], clock = [" + clock + "]");
         this.latePercentage = latePercentage;
         this.missPercentage = missPercentage;
         this.missTimeAllowed = TimeUnit.MINUTES.toMillis(missTimeAllowedInMinutes);
         this.clock = clock;
+        log.info("missTimeAllowedInMinutes = [" + missTimeAllowedInMinutes + "], latePercentage = [" + latePercentage + "], missPercentage = [" + missPercentage + "], clock = [" + clock + "]");
     }
 
     @Override
@@ -55,6 +97,20 @@ public final class InMemoryQueueRepository implements QueueRepository {
             throw new QueueElementNotFoundException(queueNumber);
         }
         return clinicQueueMap.get(queueNumber);
+    }
+
+    @Override
+    public OnlineQueueElement findQueueElementByTid(String tid) throws QueueElementNotFoundException {
+        String extractedQueueNumber = "HB" + tid.substring(tid.length() - 4);
+        if (!clinicQueueMap.containsKey(extractedQueueNumber)) {
+            throw new QueueElementNotFoundException(extractedQueueNumber);
+        } else {
+            OnlineQueueElement qe = (OnlineQueueElement) clinicQueueMap.get(extractedQueueNumber);
+            if (!qe.getTid().equals(tid)) {
+                throw new QueueElementNotFoundException(tid);
+            }
+            return qe;
+        }
     }
 
     @Override
@@ -101,7 +157,7 @@ public final class InMemoryQueueRepository implements QueueRepository {
     }
 
     private int getInsertPosition(String onlineQueueNumberString, String refQueueNumber) throws QueueElementNotFoundException {
-        if (refQueueNumber.equals("NO_TAIL")) {
+        if (refQueueNumber.equals(EMPTY_QUEUE)) {
             return 0;
         }
 
@@ -217,6 +273,9 @@ public final class InMemoryQueueRepository implements QueueRepository {
 
     @Override
     public QueueElement peekLast() {
+        if (clinicQueue.size() == 0) {
+            return new QueueElement(EMPTY_QUEUE);
+        }
         return clinicQueueMap.get(clinicQueue.get(clinicQueue.size() - 1));
     }
 

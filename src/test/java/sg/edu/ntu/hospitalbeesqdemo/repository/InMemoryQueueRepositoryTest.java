@@ -6,6 +6,7 @@ import sg.edu.ntu.hospitalbeesqdemo.model.LateRank;
 import sg.edu.ntu.hospitalbeesqdemo.model.OnlineQueueElement;
 import sg.edu.ntu.hospitalbeesqdemo.model.QueueStatus;
 
+import java.io.IOException;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneId;
@@ -42,7 +43,7 @@ public class InMemoryQueueRepositoryTest {
     public void testNotifyQueue() throws QueueElementNotFoundException, EmptyQueueException, QueueNumberAlreadyExistsException {
         QueueRepository queueRepository = createQueueRepositoryWithTenElements();
 
-        OnlineQueueElement onlineQueueElement = new OnlineQueueElement(0, 0, LateRank.ON_TIME);
+        OnlineQueueElement onlineQueueElement = new OnlineQueueElement(0, "0000", LateRank.ON_TIME);
         queueRepository.insert(onlineQueueElement, "0000");
         queueRepository.notifyQueueElement();
         queueRepository.notifyQueueElement();
@@ -62,7 +63,7 @@ public class InMemoryQueueRepositoryTest {
     @Test(expected = QueueElementNotFoundException.class)
     public void testSetComplete() throws QueueNumberAlreadyExistsException, QueueElementNotFoundException, EmptyQueueException {
         QueueRepository queueRepository = createQueueRepositoryWithTenElements();
-        OnlineQueueElement onlineQueueElement = new OnlineQueueElement(0, 0, LateRank.ON_TIME);
+        OnlineQueueElement onlineQueueElement = new OnlineQueueElement(0, "0000", LateRank.ON_TIME);
         queueRepository.insert(onlineQueueElement, "0000");
         queueRepository.notifyQueueElement();
         queueRepository.notifyQueueElement();
@@ -87,7 +88,7 @@ public class InMemoryQueueRepositoryTest {
     @Test
     public void testSetMissed() throws QueueNumberAlreadyExistsException, QueueElementNotFoundException, EmptyQueueException {
         QueueRepository queueRepository = createQueueRepositoryWithTenElements();
-        OnlineQueueElement onlineQueueElement = new OnlineQueueElement(0, 0, LateRank.ON_TIME);
+        OnlineQueueElement onlineQueueElement = new OnlineQueueElement(0, "0000", LateRank.ON_TIME);
         queueRepository.insert(onlineQueueElement, "0000");
         queueRepository.notifyQueueElement();
         queueRepository.notifyQueueElement();
@@ -108,6 +109,22 @@ public class InMemoryQueueRepositoryTest {
         QueueRepository queueRepository = createQueueRepositoryWithTenElements();
         queueRepository.setMissed("0000");
     }
+    
+    @Test
+    public void testFindQueueByTid() throws QueueElementNotFoundException, QueueNumberAlreadyExistsException {
+        QueueRepository queueRepository = createQueueRepositoryWithTenElements();
+        OnlineQueueElement qe = new OnlineQueueElement("HB0007","00012018040315000007", LateRank.ON_TIME);
+        queueRepository.insert(qe, "0007");
+        assertEquals(qe, queueRepository.findQueueElementByTid("00012018040315000007"));
+    }
+
+    @Test(expected = QueueElementNotFoundException.class)
+    public void testFindQueueByTidMismatches() throws QueueElementNotFoundException, QueueNumberAlreadyExistsException {
+        QueueRepository queueRepository = createQueueRepositoryWithTenElements();
+        OnlineQueueElement qe = new OnlineQueueElement("HB0007","00012018040315000006", LateRank.ON_TIME);
+        queueRepository.insert(qe, "0007");
+        assertEquals(qe, queueRepository.findQueueElementByTid("00012018040315000007"));
+    }
 
     ////////// ***** INSERTION TESTS ***** //////////
 
@@ -123,8 +140,8 @@ public class InMemoryQueueRepositoryTest {
     public void testConcurrentInsertion() throws InterruptedException, QueueElementNotFoundException {
         QueueRepository queueRepository = createEmptyQueueRepository();
         queueRepository.createAndInsert();
-        OnlineQueueElement onlineQueueElement = new OnlineQueueElement(0, 0, LateRank.ON_TIME);
-        OnlineQueueElement onlineQueueElement1 = new OnlineQueueElement(1, 1, LateRank.ON_TIME);
+        OnlineQueueElement onlineQueueElement = new OnlineQueueElement(0, "0000", LateRank.ON_TIME);
+        OnlineQueueElement onlineQueueElement1 = new OnlineQueueElement(1, "0001", LateRank.ON_TIME);
         Thread[] workers = new Thread[5];
         workers[0] = new Thread(() -> queueRepository.createAndInsert());
         workers[1] = new Thread(() -> queueRepository.createAndInsert());
@@ -167,17 +184,17 @@ public class InMemoryQueueRepositoryTest {
     public void testNoTailOnlineInsertion() throws QueueNumberAlreadyExistsException, QueueElementNotFoundException {
         QueueRepository queueRepository = createEmptyQueueRepository();
         String[] expected = {"HB0000"};
-        OnlineQueueElement onlineQueueElement = new OnlineQueueElement(0, 0, LateRank.ON_TIME);
+        OnlineQueueElement onlineQueueElement = new OnlineQueueElement(0, "0000", LateRank.ON_TIME);
         queueRepository.insert(onlineQueueElement, "NO_TAIL");
         assertArrayEquals(expected, queueRepository.getClinicQueue());
 
         queueRepository.reset();
-        onlineQueueElement = new OnlineQueueElement(0, 0, LateRank.LITTLE_LATE);
+        onlineQueueElement = new OnlineQueueElement(0, "0000", LateRank.LITTLE_LATE);
         queueRepository.insert(onlineQueueElement, "NO_TAIL");
         assertArrayEquals(expected, queueRepository.getClinicQueue());
 
         queueRepository.reset();
-        onlineQueueElement = new OnlineQueueElement(0, 0, LateRank.VERY_LATE);
+        onlineQueueElement = new OnlineQueueElement(0, "0000", LateRank.VERY_LATE);
         queueRepository.insert(onlineQueueElement, "NO_TAIL");
         assertArrayEquals(expected, queueRepository.getClinicQueue());
 
@@ -186,12 +203,12 @@ public class InMemoryQueueRepositoryTest {
     @Test(expected = QueueNumberAlreadyExistsException.class)
     public void testDuplicateOnlineInsertion() throws QueueNumberAlreadyExistsException, QueueElementNotFoundException {
         QueueRepository queueRepository = createQueueRepositoryWithTenElements();
-        OnlineQueueElement onlineQueueElement = new OnlineQueueElement(0, 0, LateRank.ON_TIME);
+        OnlineQueueElement onlineQueueElement = new OnlineQueueElement(0, "0000", LateRank.ON_TIME);
         queueRepository.insert(onlineQueueElement, "0004");
         assertEquals(11, queueRepository.getLength());
         assertEquals(5, queueRepository.getLengthFrom("HB0000"));
 
-        OnlineQueueElement onlineQueueElement1 = new OnlineQueueElement(0, 1, LateRank.ON_TIME);
+        OnlineQueueElement onlineQueueElement1 = new OnlineQueueElement(0, "0000", LateRank.ON_TIME);
         queueRepository.insert(onlineQueueElement1, "0008");
     }
 
@@ -199,12 +216,12 @@ public class InMemoryQueueRepositoryTest {
     public void testOnTimeOnlineInsertionWithRefQ() throws QueueElementNotFoundException, QueueNumberAlreadyExistsException {
         QueueRepository queueRepository = createQueueRepositoryWithTenElements();
 
-        OnlineQueueElement onlineQueueElement = new OnlineQueueElement(0, 0, LateRank.ON_TIME);
+        OnlineQueueElement onlineQueueElement = new OnlineQueueElement(0, "0000", LateRank.ON_TIME);
         queueRepository.insert(onlineQueueElement, "0004");
         assertEquals(11, queueRepository.getLength());
         assertEquals(5, queueRepository.getLengthFrom("HB0000"));
 
-        OnlineQueueElement onlineQueueElement1 = new OnlineQueueElement(1, 1, LateRank.ON_TIME);
+        OnlineQueueElement onlineQueueElement1 = new OnlineQueueElement(1, "0001", LateRank.ON_TIME);
         queueRepository.insert(onlineQueueElement1, "0004");
         assertEquals(12, queueRepository.getLength());
         assertEquals(6, queueRepository.getLengthFrom("HB0001"));
@@ -216,12 +233,12 @@ public class InMemoryQueueRepositoryTest {
     public void testVeryLateOnlineInsertionWithRefQ() throws QueueElementNotFoundException, QueueNumberAlreadyExistsException, EmptyQueueException {
         QueueRepository queueRepository = createQueueRepositoryWithTenElements();
 
-        OnlineQueueElement onlineQueueElement = new OnlineQueueElement(0, 0, LateRank.VERY_LATE);
+        OnlineQueueElement onlineQueueElement = new OnlineQueueElement(0, "0000", LateRank.VERY_LATE);
         queueRepository.insert(onlineQueueElement, "0004");
         assertEquals(11, queueRepository.getLength());
         assertEquals(queueRepository.peekLast(), onlineQueueElement);
 
-        OnlineQueueElement onlineQueueElement1 = new OnlineQueueElement(1, 1, LateRank.ON_TIME);
+        OnlineQueueElement onlineQueueElement1 = new OnlineQueueElement(1, "0001", LateRank.ON_TIME);
         queueRepository.insert(onlineQueueElement1, "0004");
         assertEquals(12, queueRepository.getLength());
         assertEquals(5, queueRepository.getLengthFrom("HB0001"));
@@ -232,19 +249,19 @@ public class InMemoryQueueRepositoryTest {
     public void testLittleLateOnlineInsertionWithRefQ() throws QueueElementNotFoundException, QueueNumberAlreadyExistsException {
         QueueRepository queueRepository = createQueueRepositoryWithTenElements();
 
-        OnlineQueueElement onlineQueueElement = new OnlineQueueElement(0, 0, LateRank.LITTLE_LATE);
+        OnlineQueueElement onlineQueueElement = new OnlineQueueElement(0, "0000", LateRank.LITTLE_LATE);
         queueRepository.insert(onlineQueueElement, "0004");
         assertEquals(11, queueRepository.getLength());
         int len = queueRepository.getLengthFrom("HB0000");
         assertTrue(5 < len && len < 10);
 
-        OnlineQueueElement onlineQueueElement1 = new OnlineQueueElement(1, 1, LateRank.LITTLE_LATE);
+        OnlineQueueElement onlineQueueElement1 = new OnlineQueueElement(1, "0001", LateRank.LITTLE_LATE);
         queueRepository.insert(onlineQueueElement1, "0004");
         assertEquals(12, queueRepository.getLength());
         len = queueRepository.getLengthFrom("HB0001");
         assertTrue(5 < len && len < 11);
 
-        OnlineQueueElement onlineQueueElement2 = new OnlineQueueElement(2, 2, LateRank.ON_TIME);
+        OnlineQueueElement onlineQueueElement2 = new OnlineQueueElement(2, "0002", LateRank.ON_TIME);
         queueRepository.insert(onlineQueueElement2, "0004");
         assertEquals(13, queueRepository.getLength());
         assertEquals(5, queueRepository.getLengthFrom("HB0002"));
@@ -260,7 +277,7 @@ public class InMemoryQueueRepositoryTest {
             queueRepository.notifyQueueElement();
         }
 
-        OnlineQueueElement onlineQueueElement = new OnlineQueueElement(0, 0, LateRank.ON_TIME);
+        OnlineQueueElement onlineQueueElement = new OnlineQueueElement(0, "0000", LateRank.ON_TIME);
         queueRepository.insert(onlineQueueElement, "0004");
         assertEquals(6, queueRepository.getLength());
         assertEquals(0, queueRepository.getLengthFrom("HB0000"));
@@ -273,12 +290,12 @@ public class InMemoryQueueRepositoryTest {
             queueRepository.notifyQueueElement();
         }
 
-        OnlineQueueElement onlineQueueElement = new OnlineQueueElement(0, 0, LateRank.VERY_LATE);
+        OnlineQueueElement onlineQueueElement = new OnlineQueueElement(0, "0000", LateRank.VERY_LATE);
         queueRepository.insert(onlineQueueElement, "0004");
         assertEquals(6, queueRepository.getLength());
         assertEquals("HB0000", queueRepository.peekLast().getQueueNumber());
 
-        OnlineQueueElement onlineQueueElement1 = new OnlineQueueElement(1, 1, LateRank.ON_TIME);
+        OnlineQueueElement onlineQueueElement1 = new OnlineQueueElement(1, "0001", LateRank.ON_TIME);
         queueRepository.insert(onlineQueueElement1, "0004");
         assertEquals(7, queueRepository.getLength());
         assertEquals(0, queueRepository.getLengthFrom("HB0001"));
@@ -291,19 +308,19 @@ public class InMemoryQueueRepositoryTest {
             queueRepository.notifyQueueElement();
         }
 
-        OnlineQueueElement onlineQueueElement = new OnlineQueueElement(0, 0, LateRank.LITTLE_LATE);
+        OnlineQueueElement onlineQueueElement = new OnlineQueueElement(0, "0000", LateRank.LITTLE_LATE);
         queueRepository.insert(onlineQueueElement, "0004");
         assertEquals(6, queueRepository.getLength());
         int len = queueRepository.getLengthFrom("HB0000");
         assertTrue(0 < len && len < 5);
 
-        OnlineQueueElement onlineQueueElement1 = new OnlineQueueElement(1, 1, LateRank.LITTLE_LATE);
+        OnlineQueueElement onlineQueueElement1 = new OnlineQueueElement(1, "0001", LateRank.LITTLE_LATE);
         queueRepository.insert(onlineQueueElement1, "0004");
         assertEquals(7, queueRepository.getLength());
         len = queueRepository.getLengthFrom("HB0001");
         assertTrue(0 < len && len < 6);
 
-        OnlineQueueElement onlineQueueElement2 = new OnlineQueueElement(2, 2, LateRank.ON_TIME);
+        OnlineQueueElement onlineQueueElement2 = new OnlineQueueElement(2, "0002", LateRank.ON_TIME);
         queueRepository.insert(onlineQueueElement2, "0004");
         assertEquals(8, queueRepository.getLength());
         assertEquals(0, queueRepository.getLengthFrom("HB0002"));
@@ -314,7 +331,7 @@ public class InMemoryQueueRepositoryTest {
     @Test
     public void testNormalReactivate() throws QueueElementNotFoundException, IllegalTransitionException, EmptyQueueException, QueueNumberAlreadyExistsException, MissedQueueExpiredException {
         QueueRepository queueRepository = createQueueRepositoryWithTenElements();
-        OnlineQueueElement onlineQueueElement = new OnlineQueueElement(0, 0, LateRank.ON_TIME);
+        OnlineQueueElement onlineQueueElement = new OnlineQueueElement(0, "0000", LateRank.ON_TIME);
         queueRepository.insert(onlineQueueElement, "0000");
         queueRepository.notifyQueueElement();
         queueRepository.notifyQueueElement();
@@ -338,7 +355,7 @@ public class InMemoryQueueRepositoryTest {
     @Test(expected = IllegalTransitionException.class)
     public void testReactivateWithoutNotify() throws IllegalTransitionException, QueueNumberAlreadyExistsException, QueueElementNotFoundException, MissedQueueExpiredException {
         QueueRepository queueRepository = createQueueRepositoryWithTenElements();
-        OnlineQueueElement onlineQueueElement = new OnlineQueueElement(0, 0, LateRank.ON_TIME);
+        OnlineQueueElement onlineQueueElement = new OnlineQueueElement(0, "0000", LateRank.ON_TIME);
         queueRepository.insert(onlineQueueElement, "0000");
         queueRepository.reactivate("HB0000");
     }
@@ -346,7 +363,7 @@ public class InMemoryQueueRepositoryTest {
     @Test(expected = IllegalTransitionException.class)
     public void testReactivateWithoutMissed() throws IllegalTransitionException, QueueNumberAlreadyExistsException, QueueElementNotFoundException, EmptyQueueException, MissedQueueExpiredException {
         QueueRepository queueRepository = createQueueRepositoryWithTenElements();
-        OnlineQueueElement onlineQueueElement = new OnlineQueueElement(0, 0, LateRank.ON_TIME);
+        OnlineQueueElement onlineQueueElement = new OnlineQueueElement(0, "0000", LateRank.ON_TIME);
         queueRepository.insert(onlineQueueElement, "0000");
         queueRepository.notifyQueueElement();
         queueRepository.notifyQueueElement();
@@ -376,7 +393,7 @@ public class InMemoryQueueRepositoryTest {
     public void testMissedAfterReactivate() throws QueueNumberAlreadyExistsException, QueueElementNotFoundException, EmptyQueueException, IllegalTransitionException, MissedQueueExpiredException {
         QueueRepository queueRepository = createEmptyQueueRepository();
         queueRepository.createAndInsert();
-        OnlineQueueElement onlineQueueElement = new OnlineQueueElement(0, 0, LateRank.ON_TIME);
+        OnlineQueueElement onlineQueueElement = new OnlineQueueElement(0, "0000", LateRank.ON_TIME);
         queueRepository.insert(onlineQueueElement, "0000");
         queueRepository.notifyQueueElement();
         queueRepository.notifyQueueElement();
@@ -390,6 +407,4 @@ public class InMemoryQueueRepositoryTest {
         assertEquals(1, queueRepository.getLength());
         queueRepository.findQueueElementByNumber("HB0000");
     }
-
-
 }

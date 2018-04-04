@@ -32,3 +32,14 @@ nbdist/
 *.jar
 *.war
 *.ear
+
+# Serialized Files #
+*.ser
+
+# OS Files #
+Thumbs.db
+desktop.ini
+.DS_Store
+.Spotlight-V100
+.Trashes
+._*
