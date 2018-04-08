@@ -27,5 +27,6 @@ repositories {
 dependencies {
 	compile('org.springframework.boot:spring-boot-starter-hateoas')
 	compile('org.springframework.boot:spring-boot-starter-web')
+	compile('io.socket:socket.io-client:1.0.0')
 	testCompile('org.springframework.boot:spring-boot-starter-test')
 }
