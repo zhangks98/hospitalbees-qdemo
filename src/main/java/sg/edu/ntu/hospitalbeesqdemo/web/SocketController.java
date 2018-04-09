@@ -1,21 +1,23 @@
 package sg.edu.ntu.hospitalbeesqdemo.web;
 
-import io.socket.client.IO;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import io.socket.client.Ack;
 import io.socket.client.Manager;
 import io.socket.client.Socket;
 import io.socket.emitter.Emitter;
-import org.json.JSONException;
-import org.json.JSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Controller;
+import org.springframework.web.util.UriComponentsBuilder;
+import sg.edu.ntu.hospitalbeesqdemo.exceptions.QueueElementNotFoundException;
+import sg.edu.ntu.hospitalbeesqdemo.model.QueueElement;
 import sg.edu.ntu.hospitalbeesqdemo.repository.QueueRepository;
 
 import javax.annotation.PostConstruct;
-import java.net.URI;
-import java.net.URISyntaxException;
+import javax.annotation.PreDestroy;
 
 @Controller
 public class SocketController {
@@ -25,8 +27,8 @@ public class SocketController {
     private final QueueRepository queueRepository;
     private Socket mSocket;
     private final Logger log = LoggerFactory.getLogger(this.getClass());
-    private JSONObject hospitalDetails = new JSONObject();
     private boolean isConnected = false;
+    private ObjectMapper objectMapper = new ObjectMapper();
 
     @Autowired
     public SocketController (@Value("${queue.hb_url}") String serverUrl,
@@ -37,37 +39,77 @@ public class SocketController {
         this.hospitalId = hospitalId;
         this.hospitalName = hospitalName;
         this.queueRepository = queueRepository;
-        Manager manager = new Manager(URI.create(serverUrl));
+        Manager manager = new Manager(UriComponentsBuilder
+                .fromUriString(serverUrl)
+                .queryParam("hospitalId", hospitalId)
+                .queryParam("name", hospitalName)
+                .build().toUri()
+        );
         mSocket = manager.socket("/hospital");
-        try {
-            hospitalDetails.put("hospitalId", hospitalId);
-            hospitalDetails.put("name", hospitalName);
-        } catch (JSONException e) {
-            e.printStackTrace();
-        }
         log.info("serverUrl = [" + serverUrl + "], hospitalId = [" + hospitalId + "], hospitalName = [" + hospitalName + "]");
 
     }
 
     @PostConstruct
     public void connectToSocket() {
-        mSocket.on(Socket.EVENT_CONNECT, onConnect);
+        mSocket.on("peekLast", onPeekLast)
+                .on("getLength", onGetLength)
+                .on("getLengthFrom", onGetLengthFrom);
         mSocket.connect();
+        isConnected = true;
         log.info("Connected to HB Server at " + serverUrl);
 
     }
 
-    private Emitter.Listener onConnect = new Emitter.Listener() {
+    @PreDestroy
+    public void disconnectToSocket() {
+        mSocket.disconnect();
+        mSocket.off();
+        isConnected = false;
+        log.info("Disconnected to HB Server");
+
+    }
+
+    public boolean isConnected() {
+        return isConnected;
+    }
+
+    private Emitter.Listener onPeekLast = new Emitter.Listener() {
         @Override
         public void call(Object... args) {
-            if (!isConnected) {
-                mSocket.emit("handshake", hospitalDetails);
-                isConnected = true;
+            Ack ack = (Ack) args[args.length - 1];
+            try {
+                QueueElement queueElement = queueRepository.peekLast();
+                String res = objectMapper.writeValueAsString(queueElement);
+                ack.call(res);
+            } catch (JsonProcessingException e) {
+                e.printStackTrace();
             }
         }
     };
 
+    private Emitter.Listener onGetLength = new Emitter.Listener() {
+        @Override
+        public void call(Object... args) {
+            Ack ack = (Ack) args[args.length - 1];
+            int length = queueRepository.getLength();
+            ack.call(length);
+        }
+    };
 
+    private Emitter.Listener onGetLengthFrom = new Emitter.Listener() {
+        @Override
+        public void call(Object... args) {
+            String queueNumber = (String) args[0];
+            Ack ack = (Ack) args[args.length - 1];
+            try {
+                int length = queueRepository.getLengthFrom(queueNumber);
+                ack.call(length);
+            } catch (QueueElementNotFoundException e) {
+                ack.call(e.getMessage());
+            }
+        }
+    };
 
 
 }

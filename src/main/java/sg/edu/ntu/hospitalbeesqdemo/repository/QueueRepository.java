@@ -82,9 +82,8 @@ public interface QueueRepository {
      * Get the last element of the queue
      *
      * @return the QueueELement of the last element
-     * @throws EmptyQueueException when there is an empty queue, there is no last element
      */
-    QueueElement peekLast() throws EmptyQueueException;
+    QueueElement peekLast();
 
     /**
      * Get the length of the queue

@@ -40,8 +40,6 @@ public final class InMemoryQueueRepository implements QueueRepository {
 
     private static final String EMPTY_QUEUE = "NO_TAIL";
 
-    // TODO Add Serialization Code to save state
-    // TODO Add handshake with hb
     @PreDestroy
     public void persistData() throws IOException {
         SerializationUtil.saveObject(clinicQueue, "queue.ser");
@@ -49,6 +47,7 @@ public final class InMemoryQueueRepository implements QueueRepository {
         SerializationUtil.saveObject(queueNumberGenerator.get(), "generator.ser");
     }
 
+    @SuppressWarnings("unchecked")
     @PostConstruct
     public void loadData(){
         Object cq = SerializationUtil.loadObject("queue.ser");

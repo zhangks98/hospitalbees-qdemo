@@ -18,10 +18,12 @@ import static org.springframework.hateoas.mvc.ControllerLinkBuilder.linkTo;
 public class QueuesController {
 
     private final QueueRepository queueRepository;
+    private final SocketController socketController;
 
     @Autowired
-    public QueuesController(QueueRepository queueRepository) {
+    public QueuesController(QueueRepository queueRepository, SocketController socketController) {
         this.queueRepository = queueRepository;
+        this.socketController = socketController;
     }
 
     /**
@@ -39,6 +41,19 @@ public class QueuesController {
         headers.setLocation(linkTo(QueuesController.class).slash(qe.getQueueNumber()).toUri());
         return headers;
     }
+
+    @PostMapping(value = "/connect")
+    void connectToSocket() {
+        if (!socketController.isConnected())
+            socketController.connectToSocket();
+    }
+
+    @PostMapping(value = "/disconnect")
+    void disconnectSocket () {
+        if (socketController.isConnected())
+            socketController.disconnectToSocket();
+    }
+
 
     /**
      * CREATE route for HospitalBee check-in
@@ -76,17 +91,6 @@ public class QueuesController {
     @GetMapping(value = "", produces = MediaType.APPLICATION_JSON_VALUE)
     AllQueueElementResponse getAllQueueNumbers() {
         return new AllQueueElementResponse(queueRepository.getClinicQueue());
-    }
-
-    /**
-     * Get the last element of the queue for HospitalBee to determine the reference queue number
-     *
-     * @return the last QueueElement in the queue
-     * @throws EmptyQueueException if the queue is empty
-     */
-    @GetMapping(value = "/tail", produces = MediaType.APPLICATION_JSON_VALUE)
-    QueueElement getQueueTail() throws EmptyQueueException {
-        return queueRepository.peekLast();
     }
 
     /**
