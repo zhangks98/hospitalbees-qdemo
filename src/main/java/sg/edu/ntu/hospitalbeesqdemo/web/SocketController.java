@@ -21,7 +21,7 @@ import javax.annotation.PreDestroy;
 
 @Controller
 public class SocketController {
-    private String serverUrl;
+    private final String serverUrl;
     private String hospitalId;
     private String hospitalName;
     private final QueueRepository queueRepository;

@@ -1,6 +1,7 @@
 package sg.edu.ntu.hospitalbeesqdemo.web;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -11,6 +12,11 @@ import sg.edu.ntu.hospitalbeesqdemo.repository.QueueRepository;
 
 import javax.validation.Valid;
 
+import java.io.IOException;
+import java.net.HttpURLConnection;
+import java.net.MalformedURLException;
+import java.net.URL;
+
 import static org.springframework.hateoas.mvc.ControllerLinkBuilder.linkTo;
 
 @RestController
@@ -19,11 +25,15 @@ public class QueuesController {
 
     private final QueueRepository queueRepository;
     private final SocketController socketController;
+    private final URL apiUrl;
 
     @Autowired
-    public QueuesController(QueueRepository queueRepository, SocketController socketController) {
+    public QueuesController(QueueRepository queueRepository,
+                            SocketController socketController,
+                            @Value("${queue.hb_url}") String serverUrl) throws MalformedURLException {
         this.queueRepository = queueRepository;
         this.socketController = socketController;
+        this.apiUrl = new URL (new URL(serverUrl), "api");
     }
 
     /**
@@ -66,7 +76,7 @@ public class QueuesController {
      */
     @PostMapping(value = "/checkin/{tid}")
     @ResponseStatus(HttpStatus.CREATED)
-    HttpHeaders createOnlineQueue(@PathVariable("tid") String tid) throws IllegalArgumentException, QueueNumberAlreadyExistsException, QueueElementNotFoundException, IllegalTransitionException, MissedQueueExpiredException {
+    HttpHeaders createOnlineQueue(@PathVariable("tid") String tid) throws IllegalArgumentException, QueueNumberAlreadyExistsException, QueueElementNotFoundException, IllegalTransitionException, MissedQueueExpiredException, IOException {
         OnlineQueueElement qe;
         try {
             qe = queueRepository.findQueueElementByTid(tid);
@@ -75,6 +85,10 @@ public class QueuesController {
             }
         } catch (QueueElementNotFoundException e) {
             // TODO query HB for the queueElement
+            URL queryBookingUrl = new URL(apiUrl,"booking/" + tid);
+            HttpURLConnection connection = (HttpURLConnection) queryBookingUrl.openConnection();
+
+
         }
 //        OnlineQueueElement onlineQueueElement = onlineQueueForm.toOnlineQueueElement();
 //        queueRepository.insert(onlineQueueElement, onlineQueueForm.getRefQueueNumber());
