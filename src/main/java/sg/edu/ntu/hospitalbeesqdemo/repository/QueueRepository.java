@@ -68,7 +68,7 @@ public interface QueueRepository {
      *
      * @param queueNumber to find the corresponding QueueElement
      */
-    void setComplete(String queueNumber) throws QueueElementNotFoundException, IllegalTransitionException;
+    QueueElement setComplete(String queueNumber) throws QueueElementNotFoundException, IllegalTransitionException;
 
     /**
      * Set the specified element as the missed and notify HospitalBee on missed queue

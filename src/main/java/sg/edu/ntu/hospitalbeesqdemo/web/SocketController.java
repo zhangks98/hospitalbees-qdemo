@@ -22,8 +22,8 @@ import javax.annotation.PreDestroy;
 @Controller
 public class SocketController {
     private final String serverUrl;
-    private String hospitalId;
-    private String hospitalName;
+    private final String hospitalId;
+    private final String hospitalName;
     private final QueueRepository queueRepository;
     private Socket mSocket;
     private final Logger log = LoggerFactory.getLogger(this.getClass());

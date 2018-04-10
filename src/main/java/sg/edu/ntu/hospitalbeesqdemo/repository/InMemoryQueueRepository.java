@@ -5,6 +5,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
+import org.springframework.web.client.RestTemplate;
 import sg.edu.ntu.hospitalbeesqdemo.exceptions.*;
 import sg.edu.ntu.hospitalbeesqdemo.model.LateRank;
 import sg.edu.ntu.hospitalbeesqdemo.model.OnlineQueueElement;
@@ -32,13 +33,33 @@ public final class InMemoryQueueRepository implements QueueRepository {
 //    private final Object lock = new Object();
     private final SecureRandom random = new SecureRandom();
     private final Logger log = LoggerFactory.getLogger(this.getClass());
-
+    private final RestTemplate restTemplate;
     private final Clock clock;
+
     private final double latePercentage;
     private final double missPercentage;
     private final long missTimeAllowed;
+    private final String apiUrl;
+    private final String bookingApiUrl;
 
     private static final String EMPTY_QUEUE = "NO_TAIL";
+
+    @Autowired
+    public InMemoryQueueRepository( @Value("${queue.miss_time_allowed_in_minutes}") long missTimeAllowedInMinutes,
+                                    @Value("${queue.late_percentage}") double latePercentage,
+                                    @Value("${queue.miss_percentage}") double missPercentage,
+                                    @Value("${queue.hb_url}") String serverUrl,
+                                    RestTemplate restTemplate,
+                                    Clock clock) {
+        this.latePercentage = latePercentage;
+        this.missPercentage = missPercentage;
+        this.missTimeAllowed = TimeUnit.MINUTES.toMillis(missTimeAllowedInMinutes);
+        this.restTemplate = restTemplate;
+        this.clock = clock;
+        this.apiUrl = serverUrl + "/api";
+        this.bookingApiUrl = apiUrl + "/booking/";
+        log.info("missTimeAllowedInMinutes = [" + missTimeAllowedInMinutes + "], latePercentage = [" + latePercentage + "], missPercentage = [" + missPercentage + "], clock = [" + clock + "]");
+    }
 
     @PreDestroy
     public void persistData() throws IOException {
@@ -77,18 +98,6 @@ public final class InMemoryQueueRepository implements QueueRepository {
 
         log.info("Current Queue: " + String.join(", ",clinicQueue));
         log.info("Current Generator Number: " + queueNumberGenerator.get());
-    }
-
-    @Autowired
-    public InMemoryQueueRepository( @Value("${queue.miss_time_allowed_in_minutes}") long missTimeAllowedInMinutes,
-                                    @Value("${queue.late_percentage}") double latePercentage,
-                                    @Value("${queue.miss_percentage}") double missPercentage,
-                                   Clock clock) {
-        this.latePercentage = latePercentage;
-        this.missPercentage = missPercentage;
-        this.missTimeAllowed = TimeUnit.MINUTES.toMillis(missTimeAllowedInMinutes);
-        this.clock = clock;
-        log.info("missTimeAllowedInMinutes = [" + missTimeAllowedInMinutes + "], latePercentage = [" + latePercentage + "], missPercentage = [" + missPercentage + "], clock = [" + clock + "]");
     }
 
     @Override
@@ -198,13 +207,13 @@ public final class InMemoryQueueRepository implements QueueRepository {
             String qnPending = clinicQueue.get(2);
             QueueElement qePending = clinicQueueMap.get(qnPending);
         }
-        // TODO Notify the HospitalBee API on calling QueueElement
+
         return qe;
 
     }
 
     @Override
-    public void setComplete(String queueNumber) throws QueueElementNotFoundException, IllegalTransitionException {
+    public QueueElement setComplete(String queueNumber) throws QueueElementNotFoundException, IllegalTransitionException {
         if (!clinicQueueMap.containsKey(queueNumber)) {
             throw new QueueElementNotFoundException(queueNumber);
         }
@@ -212,10 +221,7 @@ public final class InMemoryQueueRepository implements QueueRepository {
         if (!qe.getStatus().equals(QueueStatus.NOTIFIED)) {
             throw new IllegalTransitionException(queueNumber, qe.getStatus(), QueueStatus.COMPLETED);
         }
-        clinicQueueMap.remove(queueNumber);
-        // TODO Notify the HospitalBee API on completed QueueElement
-
-
+        return clinicQueueMap.remove(queueNumber);
     }
 
     @Override
@@ -231,11 +237,16 @@ public final class InMemoryQueueRepository implements QueueRepository {
         if (qe.isReactivated()) {
             clinicQueueMap.remove(queueNumber);
             // TODO notify HospitalBee API on absent queue
+            if (qe instanceof OnlineQueueElement) {
+                restTemplate.put(bookingApiUrl + ((OnlineQueueElement) qe).getTid() + "/BSUpdateToAbsent", null);
+            }
 
         } else {
             qe.setMissedTime(clock.millis());
             qe.setStatus(QueueStatus.MISSED);
-            // TODO Notify the HospitalBee API on missed QueueElement
+            if (qe instanceof OnlineQueueElement) {
+                restTemplate.put(bookingApiUrl + ((OnlineQueueElement) qe).getTid() + "/QSUpdateToMissed", null);
+            }
         }
 
 
