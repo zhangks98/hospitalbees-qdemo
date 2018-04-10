@@ -68,14 +68,12 @@ public class QueuesController {
 
     @PostMapping(value = "/connect")
     void connectToSocket() {
-        if (!socketController.isConnected())
-            socketController.connectToSocket();
+        socketController.connectToSocket();
     }
 
     @PostMapping(value = "/disconnect")
     void disconnectSocket () {
-        if (socketController.isConnected())
-            socketController.disconnectToSocket();
+        socketController.disconnectToSocket();
     }
 
 
@@ -98,7 +96,6 @@ public class QueuesController {
                 queueRepository.reactivate(qe.getQueueNumber());
             }
         } catch (QueueElementNotFoundException e) {
-            // TODO query HB for the queueElement
             ResponseEntity<String> response = restTemplate.getForEntity(bookingApiUrl + tid, String.class);
             if (response.getStatusCode().equals(HttpStatus.OK)) {
                 JSONObject obj = new JSONObject(response.getBody());
@@ -117,7 +114,7 @@ public class QueuesController {
                 final String refQueueNumber = obj.getString("Booking_ReferencedQueueNumber");
                 final int eta = obj.getInt("Booking_ETA");
                 Instant bookingTime = Instant.parse(tid.substring(4, tid.length() - 4));
-                LateRank bookingLateRank = null;
+                LateRank bookingLateRank;
                 if (bookingTime.plus(eta, ChronoUnit.MINUTES).isAfter(Instant.now())) {
                     bookingLateRank = LateRank.ON_TIME;
                 } else if (bookingTime.plus(eta, ChronoUnit.MINUTES).plus(this.lateTimeAllowed, ChronoUnit.MINUTES).isAfter(Instant.now())) {
@@ -218,6 +215,8 @@ public class QueuesController {
     @DeleteMapping(value = "/reset")
     String reset() {
         queueRepository.reset();
+        socketController.disconnectToSocket();
+        restTemplate.put(apiUrl + "/hospital/" + hospitalId + "/close", null);
         return "Queue Repository Reset Successful!";
     }
 

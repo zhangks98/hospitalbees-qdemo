@@ -236,7 +236,6 @@ public final class InMemoryQueueRepository implements QueueRepository {
 
         if (qe.isReactivated()) {
             clinicQueueMap.remove(queueNumber);
-            // TODO notify HospitalBee API on absent queue
             if (qe instanceof OnlineQueueElement) {
                 restTemplate.put(bookingApiUrl + ((OnlineQueueElement) qe).getTid() + "/BSUpdateToAbsent", null);
             }
@@ -280,6 +279,10 @@ public final class InMemoryQueueRepository implements QueueRepository {
 
         qe.setStatus(QueueStatus.ACTIVE);
         qe.setReactivated(true);
+
+        if (qe instanceof OnlineQueueElement) {
+            restTemplate.put(bookingApiUrl + ((OnlineQueueElement) qe).getTid() + "/QSUpdateToReactivated", null);
+        }
     }
 
     @Override
@@ -312,8 +315,6 @@ public final class InMemoryQueueRepository implements QueueRepository {
     @Override
     public void reset() {
         queueNumberGenerator.set(0);
-        // TODO notify HospitalBee on remaining online queue numbers
-
         clinicQueue.clear();
         clinicQueueMap.clear();
 

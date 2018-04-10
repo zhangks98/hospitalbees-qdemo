@@ -1,7 +1,10 @@
 package sg.edu.ntu.hospitalbeesqdemo.web;
 
+import com.fasterxml.jackson.core.JsonFactory;
+import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import io.socket.client.Ack;
 import io.socket.client.Manager;
 import io.socket.client.Socket;
@@ -18,6 +21,8 @@ import sg.edu.ntu.hospitalbeesqdemo.repository.QueueRepository;
 
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
+import java.io.IOException;
+import java.io.StringWriter;
 
 @Controller
 public class SocketController {
@@ -27,8 +32,9 @@ public class SocketController {
     private final QueueRepository queueRepository;
     private Socket mSocket;
     private final Logger log = LoggerFactory.getLogger(this.getClass());
-    private boolean isConnected = false;
     private ObjectMapper objectMapper = new ObjectMapper();
+    private JsonFactory jsonFactory = new JsonFactory();
+
 
     @Autowired
     public SocketController (@Value("${queue.hb_url}") String serverUrl,
@@ -56,7 +62,6 @@ public class SocketController {
                 .on("getLength", onGetLength)
                 .on("getLengthFrom", onGetLengthFrom);
         mSocket.connect();
-        isConnected = true;
         log.info("Connected to HB Server at " + serverUrl);
 
     }
@@ -65,13 +70,8 @@ public class SocketController {
     public void disconnectToSocket() {
         mSocket.disconnect();
         mSocket.off();
-        isConnected = false;
         log.info("Disconnected to HB Server");
 
-    }
-
-    public boolean isConnected() {
-        return isConnected;
     }
 
     private Emitter.Listener onPeekLast = new Emitter.Listener() {
@@ -80,9 +80,19 @@ public class SocketController {
             Ack ack = (Ack) args[args.length - 1];
             try {
                 QueueElement queueElement = queueRepository.peekLast();
-                String res = objectMapper.writeValueAsString(queueElement);
+                StringWriter writer = new StringWriter();
+                JsonGenerator jsonGenerator = jsonFactory.createGenerator(writer);
+                jsonGenerator.writeStartObject();
+                jsonGenerator.writeStringField("queueNumber", queueElement.getQueueNumber());
+                jsonGenerator.writeNumberField("queueLength", queueRepository.getLength());
+                jsonGenerator.writeEndObject();
+                jsonGenerator.close();
+                writer.close();
+                String res = writer.toString();
                 ack.call(res);
             } catch (JsonProcessingException e) {
+                e.printStackTrace();
+            } catch (IOException e) {
                 e.printStackTrace();
             }
         }
