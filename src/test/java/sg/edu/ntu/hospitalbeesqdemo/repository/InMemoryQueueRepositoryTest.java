@@ -1,6 +1,11 @@
 package sg.edu.ntu.hospitalbeesqdemo.repository;
 
+import org.junit.Before;
 import org.junit.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpMethod;
+import org.springframework.test.web.client.MockRestServiceServer;
+import org.springframework.web.client.RestTemplate;
 import sg.edu.ntu.hospitalbeesqdemo.exceptions.*;
 import sg.edu.ntu.hospitalbeesqdemo.model.LateRank;
 import sg.edu.ntu.hospitalbeesqdemo.model.OnlineQueueElement;
@@ -13,13 +18,28 @@ import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
 import java.util.Arrays;
 
+import static org.springframework.test.web.client.ExpectedCount.manyTimes;
+import static org.springframework.test.web.client.ExpectedCount.never;
+import static org.springframework.test.web.client.ExpectedCount.once;
+import static org.springframework.test.web.client.match.MockRestRequestMatchers.method;
+import static org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo;
+import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
+
 import static org.junit.Assert.*;
 
 public class InMemoryQueueRepositoryTest {
 
     private Clock mockClock;
+    private RestTemplate restTemplate;
+    private MockRestServiceServer mockServer;
+
+    @Before
+    public void setUp() {
+        this.restTemplate = new RestTemplate();
+        this.mockServer = MockRestServiceServer.bindTo(this.restTemplate).ignoreExpectOrder(true).build();
+    }
     private QueueRepository createQueueRepositoryWithTenElements() {
-        QueueRepository queueRepository = new InMemoryQueueRepository(30,1.0,1.0, Clock.systemUTC());
+        QueueRepository queueRepository = new InMemoryQueueRepository(30,1.0,1.0, "", restTemplate, Clock.systemUTC());
         for (int i = 0; i < 10; i++) {
             queueRepository.createAndInsert();
         }
@@ -28,7 +48,7 @@ public class InMemoryQueueRepositoryTest {
 
     private QueueRepository createQueueRepositoryWithFakeClock() {
         mockClock = Clock.fixed(Instant.now(), ZoneId.systemDefault());
-        QueueRepository queueRepository = new InMemoryQueueRepository(30,1.0,1.0, mockClock);
+        QueueRepository queueRepository = new InMemoryQueueRepository(30,1.0,1.0, "", restTemplate, mockClock);
         for (int i = 0; i < 10; i++) {
             queueRepository.createAndInsert();
         }
@@ -36,7 +56,7 @@ public class InMemoryQueueRepositoryTest {
     }
 
     private QueueRepository createEmptyQueueRepository() {
-        return new InMemoryQueueRepository(30,1.0,1.0, Clock.systemUTC());
+        return new InMemoryQueueRepository(30,1.0,1.0,"",  restTemplate, Clock.systemUTC());
     }
 
     @Test
@@ -92,12 +112,15 @@ public class InMemoryQueueRepositoryTest {
         queueRepository.insert(onlineQueueElement, "0000");
         queueRepository.notifyQueueElement();
         queueRepository.notifyQueueElement();
+        this.mockServer.expect(requestTo("/api/booking/0000/QSUpdateToMissed")).andExpect(method(HttpMethod.PUT))
+                .andRespond(withSuccess());
         try {
             queueRepository.setComplete("0000");
             queueRepository.setMissed("HB0000");
         } catch (Exception e) {
             e.printStackTrace();
         }
+        this.mockServer.verify();
         assertNotEquals(0,queueRepository.findQueueElementByNumber("HB0000").getMissedTime());
         assertEquals(QueueStatus.MISSED, queueRepository.findQueueElementByNumber("HB0000").getStatus());
         assertTrue(!Arrays.asList(queueRepository.getClinicQueue()).contains("HB0000"));
@@ -332,6 +355,10 @@ public class InMemoryQueueRepositoryTest {
     public void testNormalReactivate() throws QueueElementNotFoundException, IllegalTransitionException, EmptyQueueException, QueueNumberAlreadyExistsException, MissedQueueExpiredException {
         QueueRepository queueRepository = createQueueRepositoryWithTenElements();
         OnlineQueueElement onlineQueueElement = new OnlineQueueElement(0, "0000", LateRank.ON_TIME);
+        this.mockServer.expect(requestTo("/api/booking/0000/QSUpdateToMissed")).andExpect(method(HttpMethod.PUT))
+                .andRespond(withSuccess());
+        this.mockServer.expect(requestTo("/api/booking/0000/QSUpdateToReactivated")).andExpect(method(HttpMethod.PUT))
+                .andRespond(withSuccess());
         queueRepository.insert(onlineQueueElement, "0000");
         queueRepository.notifyQueueElement();
         queueRepository.notifyQueueElement();
@@ -350,6 +377,7 @@ public class InMemoryQueueRepositoryTest {
         assertTrue(len > 0);
         len = queueRepository.getLengthFrom("HB0000");
         assertTrue(len > 0);
+        this.mockServer.verify();
     }
 
     @Test(expected = IllegalTransitionException.class)
@@ -391,6 +419,13 @@ public class InMemoryQueueRepositoryTest {
 
     @Test(expected = QueueElementNotFoundException.class)
     public void testMissedAfterReactivate() throws QueueNumberAlreadyExistsException, QueueElementNotFoundException, EmptyQueueException, IllegalTransitionException, MissedQueueExpiredException {
+        this.mockServer.expect(requestTo("/api/booking/0000/QSUpdateToMissed")).andExpect(method(HttpMethod.PUT))
+                .andRespond(withSuccess());
+        this.mockServer.expect(requestTo("/api/booking/0000/QSUpdateToReactivated")).andExpect(method(HttpMethod.PUT))
+                .andRespond(withSuccess());
+        this.mockServer.expect(requestTo("/api/booking/0000/BSUpdateToAbsent")).andExpect(method(HttpMethod.PUT))
+                .andRespond(withSuccess());
+
         QueueRepository queueRepository = createEmptyQueueRepository();
         queueRepository.createAndInsert();
         OnlineQueueElement onlineQueueElement = new OnlineQueueElement(0, "0000", LateRank.ON_TIME);
@@ -405,6 +440,7 @@ public class InMemoryQueueRepositoryTest {
         queueRepository.notifyQueueElement();
         queueRepository.setMissed("HB0000");
         assertEquals(1, queueRepository.getLength());
+        this.mockServer.verify();
         queueRepository.findQueueElementByNumber("HB0000");
     }
 }
