@@ -74,6 +74,10 @@ public class SocketController {
 
     }
 
+    public boolean isConnected() {
+        return mSocket.connected();
+    }
+
     private Emitter.Listener onPeekLast = new Emitter.Listener() {
         @Override
         public void call(Object... args) {

@@ -26,19 +26,20 @@ public class QueuesController {
 
     private final QueueRepository queueRepository;
     private final SocketController socketController;
-    private final String hospitalId;
+    private final int hospitalId;
     private final String apiUrl;
     private final String bookingApiUrl;
     private final int lateTimeAllowed;
     private RestTemplate restTemplate;
     private static final String tidTemplate = "CCCCYYYY-MM-DDTHH:mm:ssZQQQQ";
+    private static final String ONLINE_PREFIX = "HB";
 
     @Autowired
     public QueuesController(QueueRepository queueRepository,
                             SocketController socketController,
                             RestTemplate restTemplate,
                             @Value("${queue.hb_url}") String serverUrl,
-                            @Value("${queue.hospital_id}") String hospitalId,
+                            @Value("${queue.hospital_id}") int hospitalId,
                             @Value("${queue.late_time_in_minutes}") int lateTimeAllowed) throws MalformedURLException {
         this.queueRepository = queueRepository;
         this.socketController = socketController;
@@ -104,13 +105,13 @@ public class QueuesController {
                 if (!bookingTid.equals(tid) || tid.length() != tidTemplate.length())
                     throw new IllegalArgumentException("Illegal tid format");
                 final String bookingHospitalId = tid.substring(0, 4);
-                if (!bookingHospitalId.equals(this.hospitalId))
+                if (!Integer.valueOf(bookingHospitalId).equals(this.hospitalId))
                     throw new IllegalArgumentException("Hospital ID does not match");
                 final String bookingQueueStatus = obj.getString("Booking_QueueStatus");
                 if (!bookingQueueStatus.equals("INACTIVE"))
                     throw new IllegalArgumentException("Queue Status must be INACTIVE");
 
-                final String bookingQueueNumber = tid.substring(tid.length() - 4, tid.length());
+                final String bookingQueueNumber = ONLINE_PREFIX + tid.substring(tid.length() - 4, tid.length());
                 final String refQueueNumber = obj.getString("Booking_ReferencedQueueNumber");
                 final int eta = obj.getInt("Booking_ETA");
                 Instant bookingTime = Instant.parse(tid.substring(4, tid.length() - 4));
@@ -149,7 +150,6 @@ public class QueuesController {
      */
     @PutMapping(value = "/notify")
     QueueElement notifyHead() throws EmptyQueueException {
-        // TODO Notify the HospitalBee API on calling QueueElement
         return queueRepository.notifyQueueElement();
     }
 
@@ -161,8 +161,8 @@ public class QueuesController {
      * @throws QueueElementNotFoundException if the queue element cannot be found by queue number
      */
     @GetMapping(value = "/{queueNumber}", produces = MediaType.APPLICATION_JSON_VALUE)
-    QueueElementResponse getQueueNumber(@PathVariable("queueNumber") String queueNumber) throws QueueElementNotFoundException {
-        return new QueueElementResponse(queueRepository.findQueueElementByNumber(queueNumber), queueRepository.getLengthFrom(queueNumber));
+    QueueElement getQueueNumber(@PathVariable("queueNumber") String queueNumber) throws QueueElementNotFoundException {
+        return queueRepository.findQueueElementByNumber(queueNumber);
     }
 
     /**
@@ -215,8 +215,10 @@ public class QueuesController {
     @DeleteMapping(value = "/reset")
     String reset() {
         queueRepository.reset();
-        socketController.disconnectToSocket();
-        restTemplate.put(apiUrl + "/hospital/" + hospitalId + "/close", null);
+        if (socketController.isConnected()) {
+            socketController.disconnectToSocket();
+            restTemplate.put(apiUrl + "/hospital/" + hospitalId + "/close", null);
+        }
         return "Queue Repository Reset Successful!";
     }
 

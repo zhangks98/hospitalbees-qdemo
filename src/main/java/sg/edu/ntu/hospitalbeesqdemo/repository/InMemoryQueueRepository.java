@@ -165,6 +165,9 @@ public final class InMemoryQueueRepository implements QueueRepository {
 
     }
 
+    /**
+     * Get the insert position to the queue given the online queueNumber and refQueueNumber
+     */
     private int getInsertPosition(String onlineQueueNumberString, String refQueueNumber) throws QueueElementNotFoundException {
         if (refQueueNumber.equals(EMPTY_QUEUE)) {
             return 0;
@@ -207,6 +210,7 @@ public final class InMemoryQueueRepository implements QueueRepository {
             String qnPending = clinicQueue.get(2);
             QueueElement qePending = clinicQueueMap.get(qnPending);
         }
+        // TODO notify HB-node
 
         return qe;
 
@@ -263,7 +267,6 @@ public final class InMemoryQueueRepository implements QueueRepository {
 
         if (clock.millis() - qe.getMissedTime() > missTimeAllowed) {
             clinicQueueMap.remove(queueNumber);
-            // TODO notify HosipitalBee for double check
             throw new MissedQueueExpiredException(queueNumber);
         }
 
