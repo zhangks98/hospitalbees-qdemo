@@ -93,8 +93,17 @@ public class QueuesController {
         OnlineQueueElement qe = null;
         try {
             qe = queueRepository.findQueueElementByTid(tid);
-            if (qe.getStatus().equals(QueueStatus.MISSED) && !qe.isReactivated()) {
-                queueRepository.reactivate(qe.getQueueNumber());
+            ResponseEntity<String> response = restTemplate.getForEntity(bookingApiUrl + tid, String.class);
+            if (response.getStatusCode().equals(HttpStatus.OK)) {
+                JSONObject obj = new JSONObject(response.getBody());
+                final String bookingQueueStatus = obj.getString("Booking_QueueStatus");
+                if (bookingQueueStatus.equals("MISSED") && !qe.isReactivated()) {
+                    queueRepository.reactivate(qe.getQueueNumber());
+                } else {
+                    throw new MissedQueueExpiredException(qe.getQueueNumber());
+                }
+            } else if (response.getStatusCode().equals(HttpStatus.GONE)) {
+                throw new MissedQueueExpiredException(qe.getQueueNumber());
             }
         } catch (QueueElementNotFoundException e) {
             ResponseEntity<String> response = restTemplate.getForEntity(bookingApiUrl + tid, String.class);

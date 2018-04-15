@@ -265,6 +265,7 @@ public final class InMemoryQueueRepository implements QueueRepository {
             throw new IllegalTransitionException(queueNumber, qe.getStatus(), QueueStatus.ACTIVE);
         }
 
+        // If the user did not reactivate within missTimeAllowed, the booking will be absent
         if (clock.millis() - qe.getMissedTime() > missTimeAllowed) {
             clinicQueueMap.remove(queueNumber);
             throw new MissedQueueExpiredException(queueNumber);
