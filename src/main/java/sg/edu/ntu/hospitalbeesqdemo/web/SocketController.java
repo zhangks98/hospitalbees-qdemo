@@ -4,7 +4,6 @@ import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ObjectNode;
 import io.socket.client.Ack;
 import io.socket.client.Manager;
 import io.socket.client.Socket;
@@ -17,6 +16,8 @@ import org.springframework.stereotype.Controller;
 import org.springframework.web.util.UriComponentsBuilder;
 import sg.edu.ntu.hospitalbeesqdemo.exceptions.QueueElementNotFoundException;
 import sg.edu.ntu.hospitalbeesqdemo.model.QueueElement;
+import sg.edu.ntu.hospitalbeesqdemo.model.QueueElementResponse;
+import sg.edu.ntu.hospitalbeesqdemo.model.QueueStatus;
 import sg.edu.ntu.hospitalbeesqdemo.repository.QueueRepository;
 
 import javax.annotation.PostConstruct;
@@ -60,7 +61,8 @@ public class SocketController {
     public void connectToSocket() {
         mSocket.on("peekLast", onPeekLast)
                 .on("getLength", onGetLength)
-                .on("getLengthFrom", onGetLengthFrom);
+                .on("getLengthFrom", onGetLengthFrom)
+                .on("getQueueDetails", onGetQueueDetails);
         mSocket.connect();
         log.info("Connected to HB Server at " + serverUrl);
 
@@ -97,6 +99,30 @@ public class SocketController {
             } catch (JsonProcessingException e) {
                 e.printStackTrace();
             } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+    };
+
+    private Emitter.Listener onGetQueueDetails = new Emitter.Listener() {
+        @Override
+        public void call(Object... args) {
+            String tid = (String) args[0];
+            Ack ack = (Ack) args[args.length - 1];
+            try {
+                QueueElement queueElement = queueRepository.findQueueElementByTid(tid);
+                if(queueElement.getStatus().equals(QueueStatus.ACTIVE)) {
+                    int length = queueRepository.getLengthFrom(queueElement.getQueueNumber());
+                    ack.call(objectMapper.writeValueAsString(new QueueElementResponse(queueElement,length)));
+                    return;
+                }
+                log.info("getting queue element for tid " + tid);
+                ack.call(objectMapper.writeValueAsString(queueElement));
+            } catch (QueueElementNotFoundException e) {
+                log.warn("Failed to get queue details for " + tid + " - Not Found");
+                ack.call();
+            } catch (JsonProcessingException e) {
+                log.warn("Failed to get queue details for " + tid + " - JSON Processing Error");
                 e.printStackTrace();
             }
         }

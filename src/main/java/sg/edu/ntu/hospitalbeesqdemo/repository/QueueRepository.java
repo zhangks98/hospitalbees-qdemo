@@ -61,7 +61,7 @@ public interface QueueRepository {
      * Remove the head and set it as the pending queue element, notify the QueueElement if it is online booking
      * Also notify the second QueueElement in the updated queue
      */
-    QueueElement notifyQueueElement() throws EmptyQueueException;
+    QueueElement[] notifyQueueElement() throws EmptyQueueException;
 
     /**
      * Remove the specified QueueElement and notify HospitalBee on the completed booking

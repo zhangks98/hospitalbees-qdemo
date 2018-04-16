@@ -199,21 +199,21 @@ public final class InMemoryQueueRepository implements QueueRepository {
     }
 
     @Override
-    public QueueElement notifyQueueElement() throws EmptyQueueException {
+    public QueueElement[] notifyQueueElement() throws EmptyQueueException {
         if (clinicQueue.size() == 0) {
             throw new EmptyQueueException();
         }
+        QueueElement[] result = new QueueElement[2];
         String qnHead = clinicQueue.remove(0);
         QueueElement qe = clinicQueueMap.get(qnHead);
         qe.setStatus(QueueStatus.NOTIFIED);
+        result[0] = qe;
         if (clinicQueue.size() > 2) {
             String qnPending = clinicQueue.get(2);
             QueueElement qePending = clinicQueueMap.get(qnPending);
+            result[1] = qePending;
         }
-        // TODO notify HB-node
-
-        return qe;
-
+        return result;
     }
 
     @Override

@@ -40,7 +40,7 @@ public class QueuesController {
                             RestTemplate restTemplate,
                             @Value("${queue.hb_url}") String serverUrl,
                             @Value("${queue.hospital_id}") int hospitalId,
-                            @Value("${queue.late_time_in_minutes}") int lateTimeAllowed) throws MalformedURLException {
+                            @Value("${queue.late_time_in_minutes}") int lateTimeAllowed) {
         this.queueRepository = queueRepository;
         this.socketController = socketController;
         this.restTemplate = restTemplate;
@@ -100,7 +100,7 @@ public class QueuesController {
                 if (bookingQueueStatus.equals("MISSED") && !qe.isReactivated()) {
                     queueRepository.reactivate(qe.getQueueNumber());
                 } else {
-                    throw new MissedQueueExpiredException(qe.getQueueNumber());
+                    throw new IllegalTransitionException(qe.getQueueNumber(),bookingQueueStatus,QueueStatus.ACTIVE);
                 }
             } else if (response.getStatusCode().equals(HttpStatus.GONE)) {
                 throw new MissedQueueExpiredException(qe.getQueueNumber());
@@ -159,7 +159,18 @@ public class QueuesController {
      */
     @PutMapping(value = "/notify")
     QueueElement notifyHead() throws EmptyQueueException {
-        return queueRepository.notifyQueueElement();
+        QueueElement[] result = queueRepository.notifyQueueElement();
+        QueueElement headQe = result[0];
+        QueueElement approachingQe = result[1];
+        if (headQe instanceof OnlineQueueElement) {
+            restTemplate.postForLocation(bookingApiUrl + ((OnlineQueueElement) headQe).getTid() + "/notifyHead", null);
+        }
+
+        if (approachingQe instanceof OnlineQueueElement) {
+            restTemplate.postForLocation(bookingApiUrl + ((OnlineQueueElement) approachingQe).getTid() + "/notifyApproaching", null);
+        }
+
+        return headQe;
     }
 
     /**
