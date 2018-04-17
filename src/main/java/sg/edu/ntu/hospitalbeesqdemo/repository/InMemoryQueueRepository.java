@@ -48,7 +48,7 @@ public final class InMemoryQueueRepository implements QueueRepository {
     public InMemoryQueueRepository( @Value("${queue.miss_time_allowed_in_minutes}") long missTimeAllowedInMinutes,
                                     @Value("${queue.late_percentage}") double latePercentage,
                                     @Value("${queue.miss_percentage}") double missPercentage,
-                                    @Value("${queue.hb_url}") String serverUrl,
+                                    @Value("${hospital.hb_url}") String serverUrl,
                                     RestTemplate restTemplate,
                                     Clock clock) {
         this.latePercentage = latePercentage;

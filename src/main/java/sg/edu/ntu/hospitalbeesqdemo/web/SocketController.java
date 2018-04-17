@@ -38,9 +38,11 @@ public class SocketController {
 
 
     @Autowired
-    public SocketController (@Value("${queue.hb_url}") String serverUrl,
-                             @Value("${queue.hospital_id}") String hospitalId,
-                             @Value("${queue.hospital_name}") String hospitalName,
+    public SocketController (@Value("${hospital.hb_url}") String serverUrl,
+                             @Value("${hospital.hospital_id}") String hospitalId,
+                             @Value("${hospital.hospital_name}") String hospitalName,
+                             @Value("${hospital.lat}") double lat,
+                             @Value("${hospital.lng}") double lng,
                              QueueRepository queueRepository) {
         this.serverUrl = serverUrl;
         this.hospitalId = hospitalId;
@@ -50,6 +52,8 @@ public class SocketController {
                 .fromUriString(serverUrl)
                 .queryParam("hospitalId", hospitalId)
                 .queryParam("name", hospitalName)
+                .queryParam("lat", lat)
+                .queryParam("lng",lng)
                 .build().toUri()
         );
         mSocket = manager.socket("/hospital");

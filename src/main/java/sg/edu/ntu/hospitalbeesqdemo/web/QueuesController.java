@@ -14,7 +14,6 @@ import sg.edu.ntu.hospitalbeesqdemo.exceptions.*;
 import sg.edu.ntu.hospitalbeesqdemo.model.*;
 import sg.edu.ntu.hospitalbeesqdemo.repository.QueueRepository;
 
-import java.net.MalformedURLException;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 
@@ -38,8 +37,8 @@ public class QueuesController {
     public QueuesController(QueueRepository queueRepository,
                             SocketController socketController,
                             RestTemplate restTemplate,
-                            @Value("${queue.hb_url}") String serverUrl,
-                            @Value("${queue.hospital_id}") int hospitalId,
+                            @Value("${hospital.hb_url}") String serverUrl,
+                            @Value("${hospital.hospital_id}") int hospitalId,
                             @Value("${queue.late_time_in_minutes}") int lateTimeAllowed) {
         this.queueRepository = queueRepository;
         this.socketController = socketController;
