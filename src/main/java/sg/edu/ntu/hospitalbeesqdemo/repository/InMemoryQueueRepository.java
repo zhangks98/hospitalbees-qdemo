@@ -184,7 +184,8 @@ public final class InMemoryQueueRepository implements QueueRepository {
                 }
                 OnlineQueueElement onlineQueueElement = (OnlineQueueElement) clinicQueueMap.get(qnString);
                 int qnInt = Integer.valueOf(qnString.split("HB")[1]);
-                if (qnInt < onlineQueueNumber && onlineQueueElement.getLateRank().equals(LateRank.ON_TIME)
+                if (qnInt < onlineQueueNumber && !onlineQueueElement.isReactivated()
+                        && onlineQueueElement.getLateRank().equals(LateRank.ON_TIME)
                         && onlineQueueElement.getStatus().equals(QueueStatus.ACTIVE)) {
                     return index + 1;
                 }
